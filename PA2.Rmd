@@ -1,0 +1,23 @@
+---
+title: "Summary of Most Impactful Storm Event Types"
+author: "Michael Crocco"
+date: "October 16, 2015"
+output: html_document
+---
+## Synopsis  
+In this report, we investigate U.S. National Oceanic and Atmosphereic Administration (NOAA) storm database to determine the types of storms which are most harmful to both population health and the economy.  FILL IN THE REST OF THE SYNOPSIS
+
+## Loading and Processing Available Raw Data
+
+
+```{r Read, cache=TRUE}
+data <- read.csv("repdata-data-StormData.csv.bz2", header = TRUE)
+```
+Key categories: EVTYPE, FATALITIES, INJURIES, PROPDMG, CROPDMG, and associated EXP files to use as multipliers.
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+plot(cars)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
