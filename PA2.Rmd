@@ -11,13 +11,36 @@ In this report, we investigate U.S. National Oceanic and Atmosphereic Administra
 
 
 ```{r Read, cache=TRUE}
-data <- read.csv("repdata-data-StormData.csv.bz2", header = TRUE)
-```
-Key categories: EVTYPE, FATALITIES, INJURIES, PROPDMG, CROPDMG, and associated EXP files to use as multipliers.
-You can also embed plots, for example:
+data_raw <- read.csv("repdata-data-StormData.csv.bz2", header = TRUE)
 
-```{r, echo=FALSE}
-plot(cars)
 ```
+Values for property damage (PROPDMG) and crop damage (CROPDMG) need to be multiplied by a multiplier mapped to the exponent values provided in PROPDMGEXP and CROPDMGEXP. Map values are established from https://rstudio-pubs-static.s3.amazonaws.com/58957_37b6723ee52b455990e149edde45e5b6.html.  
+Once actual damage values are calculated, they can be summed to a TOTALDMG variable. This will be used for comparison of event type costs.  
 
+```{r calculate}
+# copy the raw data first
+data <- data_raw
+# set up the map values for the 'EXP' values
+multiplierKey <- c('H','h','K','k','M','m','B','b','+','-',
+                   '?','0','1','2','3','4','5','6','7','8')
+multiplier <- c(100, 100, 1000, 1000, 1000000, 1000000,
+                1000000000, 1000000000, 1, 0, 0, 10, 10, 10,
+                10, 10, 10, 10, 10, 10)
+# install plyr package and mapvalues
+library(plyr)
+data$propdmgmult <- as.numeric(as.character(mapvalues(data$PROPDMGEXP, from=multiplierKey, to=multiplier)))
+data$cropdmgmult <- as.numeric(as.character(mapvalues(data$CROPDMGEXP, from=multiplierKey, to=multiplier)))
+#compute total damage
+data$TOTALDMG <- data$PROPDMG * data$propdmgmult + data$CROPDMG * data$cropdmgmult
+```
+Summarize data
+```{r summarize}
+library(dplyr)
+result <-
+        data %>%
+        group_by(EVTYPE) %>%
+        summarize(sum(TOTALDMG),
+                  sum(INJURIES),
+                  sum(FATALITIES))
+```
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
