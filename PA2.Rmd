@@ -5,21 +5,17 @@ date: "October 16, 2015"
 output: html_document
 ---
 ## Synopsis  
-In this report, we investigate U.S. National Oceanic and Atmosphereic Administration (NOAA) storm database to determine the types of storms which are most harmful to both population health and the economy.  FILL IN THE REST OF THE SYNOPSIS
+In this report, we investigate U.S. National Oceanic and Atmosphereic Administration (NOAA) storm database to determine the types of storms which are most harmful to both population health and the economy.  Storm Event Types are sorted in descending order of 1. Human Injuries, 2. Human Deaths, and 3. Economic Cost. The top ten in each category are plotted to establish the main contributors.
 
-## Loading and Processing Available Raw Data
-
-
+## Data Processing
 ```{r Read, cache=TRUE}
-data_raw <- read.csv("repdata-data-StormData.csv.bz2", header = TRUE)
-
+data <- read.csv("repdata-data-StormData.csv.bz2", header = TRUE)
 ```
 Values for property damage (PROPDMG) and crop damage (CROPDMG) need to be multiplied by a multiplier mapped to the exponent values provided in PROPDMGEXP and CROPDMGEXP. Map values are established from https://rstudio-pubs-static.s3.amazonaws.com/58957_37b6723ee52b455990e149edde45e5b6.html.  
 Once actual damage values are calculated, they can be summed to a TOTALDMG variable. This will be used for comparison of event type costs.  
 
 ```{r calculate}
-# copy the raw data first
-data <- data_raw
+
 # set up the map values for the 'EXP' values
 multiplierKey <- c('H','h','K','k','M','m','B','b','+','-',
                    '?','0','1','2','3','4','5','6','7','8')
@@ -33,14 +29,58 @@ data$cropdmgmult <- as.numeric(as.character(mapvalues(data$CROPDMGEXP, from=mult
 #compute total damage
 data$TOTALDMG <- data$PROPDMG * data$propdmgmult + data$CROPDMG * data$cropdmgmult
 ```
-Summarize data
+Total damage is summed as crop damage tends to be small compared to property damage. If we're looking for the most damaging events to the economy, we will assume crop damage impacts the economy in a similar way to property damage.  
+
+We will, however, look at injuries separate from deaths to get an idea of which type of events are most damaging to health. This is because while injuries are less damaging than death, the severity of the injury is needed to make any attempt to make a relative comparison to a death. Simply looking at "total humans affected" is not sufficient, as an injury with no loss of work should be almost completely discounted relative to a loss of limb.
+
+## Summarize data
 ```{r summarize}
 library(dplyr)
 result <-
         data %>%
         group_by(EVTYPE) %>%
-        summarize(sum(TOTALDMG),
-                  sum(INJURIES),
-                  sum(FATALITIES))
+        summarize(totaldmg = sum(TOTALDMG),
+                  injuries = sum(INJURIES),
+                  fatalities = sum(FATALITIES)) %>%
+        filter(totaldmg > 0 | injuries > 0 | fatalities > 0)
 ```
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Now, to display results, filter for the top 10 event type for each of categories of total damage costs, and human fatalities and injuries.
+
+```{r breakdown}
+injury <- result %>%
+        arrange(desc(injuries)) %>%
+        select(EVTYPE, injuries)
+injuryTen <- injury[1:10,]
+
+fatal <- result %>%
+        arrange(desc(fatalities)) %>%
+        select(EVTYPE, fatalities)
+fatalTen <- fatal[1:10,]
+
+cost <- result %>%
+        arrange(desc(totaldmg)) %>%
+        select(EVTYPE, totaldmg) %>%
+        mutate(totaldmg=totaldmg/1000000) #convert to millions of dollars
+costTen <- cost[1:10,]
+```
+Now, we can plot results and summarize findings.
+
+## Results
+```{r plotHarm}
+par(mfrow = c(1,2), las=3, cex=0.7, mar = c(12, 4, 3, 2))
+barplot(injuryTen$injuries, names.arg=injuryTen$EVTYPE, ylab="No. of Injuries", 
+        main="Most Injurious Event Types")
+barplot(fatalTen$fatalities, names.arg=fatalTen$EVTYPE, ylab="No. of Fatalities",
+        main="Most Fatal Event Types")
+```
+  
+As we can see from the above, tornadoes cause both the most fatalities and injuries. They have a significant impact relative to other event types.
+
+```{r plotCost}
+par(mfrow=c(1,1), las=3, cex=0.7, mar = c(16, 4, 3, 2))
+barplot(costTen$totaldmg, names.arg=costTen$EVTYPE, 
+        ylab="Cost in Millions of USD",
+        main="Most Costly Event Types")
+```
+  
+The most costly event types, by a significant margin, are "Tornadoes, TSTM Wind and Hail"", a similar result to the injuries and fatalities above.
